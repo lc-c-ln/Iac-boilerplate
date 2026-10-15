@@ -1,0 +1,32 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__NAME__</title>
+<style>
+:root{--c:__COLOR__;--bg:#fff;--fg:#111;--mut:#666;--card:#f5f5f7}
+@media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#999;--card:#1c1c1e}}
+body{margin:0;font:16px system-ui;background:var(--bg);color:var(--fg)}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{color:var(--c);margin:.2em 0}.t{color:var(--mut)}
+nav button{margin:0 6px 6px 0;padding:6px 12px;border:1px solid var(--c);background:none;color:var(--c);border-radius:99px;cursor:pointer}
+nav button.on{background:var(--c);color:#fff}
+.card{background:var(--card);padding:12px;border-radius:10px;margin:8px 0}
+form{display:grid;gap:6px;margin:12px 0}input,select,textarea{padding:8px;font:inherit;width:100%;box-sizing:border-box}
+</style></head><body><main>
+<h1>__NAME__</h1><p class="t">__TAGLINE__</p>
+<div id="auth" class="t"></div><nav id="nav"></nav><div id="list"></div><form id="form"></form>
+</main><script>
+const S="/s/__SLUG__/api";let spec,cur,tok=localStorage.getItem("tok___SLUG__");
+const j=(p,o={})=>fetch(S+p,{...o,headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})}}).then(r=>r.json());
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function load(){spec=await j("/spec");cur=cur||spec.entities[0].key;
+ auth.innerHTML=tok?"로그인됨":'<button onclick="signup()">핸들로 가입</button>';
+ nav.innerHTML=spec.entities.map(e=>`<button class="${e.key==cur?"on":""}" onclick="cur='${e.key}';load()">${esc(e.label)}</button>`).join("");
+ const e=spec.entities.find(x=>x.key==cur),rows=await j("/e/"+cur);
+ list.innerHTML=rows.map(r=>`<div class="card"><b>${esc(r.data[e.title_field||e.fields[0].name]||"")}</b>${r.rating.avg?" ★"+r.rating.avg:""}<div class="t">${
+  e.fields.slice(1).map(f=>r.data[f.name]!=null?esc(f.label||f.name)+": "+esc(r.data[f.name]):"").filter(Boolean).join(" · ")}</div></div>`).join("")||'<p class="t">아직 없음</p>';
+ form.innerHTML="<b>"+esc(e.label)+" 등록</b>"+e.fields.map(f=>f.type=="select"?`<select name="${f.name}"><option value="">${esc(f.label||f.name)}</option>${f.options.map(o=>`<option>${esc(o)}</option>`)}</select>`:
+  f.type=="longtext"?`<textarea name="${f.name}" placeholder="${esc(f.label||f.name)}"></textarea>`:`<input name="${f.name}" placeholder="${esc(f.label||f.name)}${f.required?" *":""}">`).join("")+"<button>등록</button>";}
+async function signup(){const h=prompt("핸들");if(!h)return;const r=await j("/signup",{method:"POST",body:JSON.stringify({handle:h})});if(r.token){tok=r.token;localStorage.setItem("tok___SLUG__",tok);load()}else alert(r.detail)}
+form.onsubmit=async ev=>{ev.preventDefault();const d={};new FormData(form).forEach((v,k)=>{if(v!=="")d[k]=v});
+ const r=await j("/e/"+cur,{method:"POST",body:JSON.stringify(d)});if(r.detail)alert(JSON.stringify(r.detail));else load()};
+load();
+</script></body></html>

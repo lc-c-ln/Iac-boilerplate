@@ -1,0 +1,21 @@
+# 새 서비스 = 이 파일 복사 + 주제/객체 수정. ('_'로 시작하는 파일은 로드되지 않음)
+slug: my-topic              # URL: /s/my-topic/
+name: 서비스 이름
+topic: 한 줄 주제 설명
+tagline: 서비스 슬로건
+domain: null                # 커스텀 도메인이 있으면 지정
+theme: {color: "#2563eb"}
+entities:                   # 이 커뮤니티가 다루는 '객체'들
+  - key: item
+    label: 항목
+    title_field: name
+    fields:
+      - {name: name, type: text, required: true}
+      - {name: category, type: select, options: [A, B]}
+      - {name: link, type: url}
+      - {name: note, type: longtext}
+community:
+  threads: true             # 자유 글/댓글
+  reviews: true             # 객체별 1~5점 리뷰
+  reactions: [like]
+  moderation: open          # open | approval

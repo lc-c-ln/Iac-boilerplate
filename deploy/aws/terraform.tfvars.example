@@ -1,0 +1,7 @@
+region        = "ap-northeast-2"
+domain        = ""          # 예: "forge.example.com"
+route53_zone_id = ""        # 해당 존 ID (있으면 DNS/ACM 자동화)
+extra_domains = []          # 예: ["camping.example.org"]
+desired_count = 2
+db_instance_class = "db.t4g.small"
+db_multi_az   = false       # 운영 시 true 권장

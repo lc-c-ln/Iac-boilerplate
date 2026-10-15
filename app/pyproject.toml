@@ -1,0 +1,14 @@
+[project]
+name = "platform-forge"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["fastapi", "uvicorn[standard]", "pyyaml", "httpx", "psycopg[binary]"]
+
+[project.scripts]
+forge = "forge.cli:main"
+
+[tool.setuptools]
+packages = ["forge"]
+
+[tool.setuptools.package-data]
+forge = ["templates/*.html"]

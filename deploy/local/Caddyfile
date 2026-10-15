@@ -1,0 +1,6 @@
+# Host 헤더 기반 라우팅은 앱이 처리한다. 프록시는 전부 앱으로 넘기기만 한다.
+# 서비스별 커스텀 도메인(예: a.example.com, b.example.com)을 쓰려면 SITE_ADDRESS에 쉼표로 나열.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+	reverse_proxy app:8000
+}

@@ -1,0 +1,43 @@
+# 로컬 / 온프레미스: Caddy(리버스 프록시·자동 TLS) → app → Postgres
+name: platform-forge
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD 설정 필요}
+      POSTGRES_DB: forge
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forge -d forge"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: ../../app
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      DATABASE_URL: postgresql://forge:${POSTGRES_PASSWORD}@db:5432/forge
+      SPECS_DIR: /srv/specs
+    # specs를 호스트에서 마운트 → 파일 추가/수정만으로 재시작 없이 서비스 생성(핫 리로드)
+    volumes: [../../app/specs:/srv/specs:ro]
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}   # 도메인이면 자동 HTTPS(Let's Encrypt), 사내망/로컬이면 :80
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
