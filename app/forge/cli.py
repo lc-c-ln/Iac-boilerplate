@@ -27,6 +27,10 @@ def cmd_new(a):
             "entities": [parse_entity(e) for e in a.entity],
             "community": {"moderation": a.moderation, "reviews": True, "threads": True, "reactions": ["like"]}}
     if a.domain: spec["domain"] = a.domain
+    if a.auth == "kakao": spec["auth"] = {"provider": "kakao"}
+    if a.auth == "portone":
+        spec["auth"] = {"provider": "portone", "portone": {"store_id": a.portone_store_id or "store-REPLACE-ME",
+                        "channel_key": a.portone_channel_key or "channel-key-REPLACE-ME", "min_age": a.min_age}}
     SPECS.mkdir(exist_ok=True)
     p = SPECS / f"{a.slug}.yaml"
     if p.exists(): sys.exit(f"{p} 이미 존재")
@@ -60,6 +64,8 @@ def main():
     n.add_argument("slug"); n.add_argument("--topic", required=True); n.add_argument("--name"); n.add_argument("--tagline")
     n.add_argument("--entity", action="append", required=True, help="예: 'gym=name*,city*,grade:select(V0|V1)'")
     n.add_argument("--moderation", choices=["open", "approval"], default="open"); n.add_argument("--domain")
+    n.add_argument("--auth", choices=["token", "kakao", "portone"], default="token", help="가입 방식 (기본 token=개발용)")
+    n.add_argument("--portone-store-id"); n.add_argument("--portone-channel-key"); n.add_argument("--min-age", type=int, default=0)
     sub.add_parser("validate").set_defaults(fn=cmd_validate)
     sub.add_parser("list").set_defaults(fn=cmd_list)
     s = sub.add_parser("serve"); s.set_defaults(fn=cmd_serve)

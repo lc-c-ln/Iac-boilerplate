@@ -4,6 +4,8 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+import httpx
+from .auth import build_router
 from .db import DB
 from .spec import Registry, ServiceSpec, validate_record
 
@@ -20,9 +22,12 @@ class ThreadIn(BaseModel):
 class ReactIn(BaseModel): target_id: int; kind: str = "like"
 
 
-def create_app(specs_dir: str | Path = "specs", db_path: str = ":memory:") -> FastAPI:
+def create_app(specs_dir: str | Path = "specs", db_path: str = ":memory:", http: httpx.Client | None = None) -> FastAPI:
     reg, db = Registry(Path(specs_dir)), DB(db_path)
     app = FastAPI(title="platform-forge")
+
+    app.state.db = db
+    app.include_router(build_router(reg, db, http or httpx.Client(timeout=10)))
 
     def tenant(slug: str) -> ServiceSpec:
         s = reg.get(slug)
@@ -61,9 +66,10 @@ def create_app(specs_dir: str | Path = "specs", db_path: str = ":memory:") -> Fa
 
     @app.post("/s/{slug}/api/signup")
     def signup(slug: str, body: Signup):
-        tenant(slug)
+        if tenant(slug).auth.provider != "token":
+            raise HTTPException(404, "이 서비스는 소셜/본인인증으로만 가입할 수 있습니다")
         try: return {"token": db.signup(slug, body.handle[:40])}
-        except Exception: raise HTTPException(409, "이미 있는 handle")
+        except ValueError: raise HTTPException(409, "이미 있는 handle")
 
     @app.get("/s/{slug}/api/e/{entity}")
     def list_(slug: str, entity: str, q: str | None = None, limit: int = 50, offset: int = 0):

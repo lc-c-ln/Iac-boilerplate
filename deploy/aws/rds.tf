@@ -42,3 +42,24 @@ resource "aws_secretsmanager_secret_version" "database_url" {
   secret_id     = aws_secretsmanager_secret.database_url.id
   secret_string = "postgresql://forge:${random_password.db.result}@${aws_db_instance.main.address}:5432/forge"
 }
+
+# 인증 관련 비밀값을 하나의 JSON 시크릿으로 보관 → ECS가 키별로 환경변수에 주입
+resource "random_password" "session" {
+  length  = 64
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "auth" {
+  name_prefix             = "${var.name}/auth-"
+  recovery_window_in_days = 7
+}
+
+resource "aws_secretsmanager_secret_version" "auth" {
+  secret_id = aws_secretsmanager_secret.auth.id
+  secret_string = jsonencode({
+    SESSION_SECRET      = random_password.session.result
+    KAKAO_REST_API_KEY  = var.kakao_rest_api_key
+    KAKAO_CLIENT_SECRET = var.kakao_client_secret
+    PORTONE_API_SECRET  = var.portone_api_secret
+  })
+}

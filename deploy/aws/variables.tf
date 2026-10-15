@@ -73,3 +73,20 @@ variable "single_nat" {
   type        = bool
   default     = true
 }
+
+# --- 인증 비밀값 (비워 두면 해당 로그인 방식만 비활성) ---
+variable "kakao_rest_api_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "kakao_client_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "portone_api_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}

@@ -14,18 +14,34 @@ form{display:grid;gap:6px;margin:12px 0}input,select,textarea{padding:8px;font:i
 <h1>__NAME__</h1><p class="t">__TAGLINE__</p>
 <div id="auth" class="t"></div><nav id="nav"></nav><div id="list"></div><form id="form"></form>
 </main><script>
-const S="/s/__SLUG__/api";let spec,cur,tok=localStorage.getItem("tok___SLUG__");
+const S="/s/__SLUG__/api";let spec,cur,cfg,tok=localStorage.getItem("tok___SLUG__");
+const save=t=>{tok=t;localStorage.setItem("tok___SLUG__",t)};
+if(location.hash.startsWith("#token=")){save(location.hash.slice(7));history.replaceState(null,"",location.pathname)}   // 카카오 로그인 복귀
+else if(location.hash.startsWith("#error=")){alert("로그인 실패: "+location.hash.slice(7));history.replaceState(null,"",location.pathname)}
 const j=(p,o={})=>fetch(S+p,{...o,headers:{"Content-Type":"application/json",...(tok?{Authorization:"Bearer "+tok}:{})}}).then(r=>r.json());
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-async function load(){spec=await j("/spec");cur=cur||spec.entities[0].key;
- auth.innerHTML=tok?"로그인됨":'<button onclick="signup()">핸들로 가입</button>';
+async function load(){spec=await j("/spec");cfg=await j("/auth/config");cur=cur||spec.entities[0].key;
+ const label={token:"핸들로 가입",kakao:"카카오로 시작하기",portone:"본인인증으로 가입"}[cfg.provider];
+ auth.innerHTML=tok?'로그인됨 <button onclick="logout()">로그아웃</button>':`<button onclick="login()">${label}</button>`;
  nav.innerHTML=spec.entities.map(e=>`<button class="${e.key==cur?"on":""}" onclick="cur='${e.key}';load()">${esc(e.label)}</button>`).join("");
  const e=spec.entities.find(x=>x.key==cur),rows=await j("/e/"+cur);
  list.innerHTML=rows.map(r=>`<div class="card"><b>${esc(r.data[e.title_field||e.fields[0].name]||"")}</b>${r.rating.avg?" ★"+r.rating.avg:""}<div class="t">${
   e.fields.slice(1).map(f=>r.data[f.name]!=null?esc(f.label||f.name)+": "+esc(r.data[f.name]):"").filter(Boolean).join(" · ")}</div></div>`).join("")||'<p class="t">아직 없음</p>';
  form.innerHTML="<b>"+esc(e.label)+" 등록</b>"+e.fields.map(f=>f.type=="select"?`<select name="${f.name}"><option value="">${esc(f.label||f.name)}</option>${f.options.map(o=>`<option>${esc(o)}</option>`)}</select>`:
   f.type=="longtext"?`<textarea name="${f.name}" placeholder="${esc(f.label||f.name)}"></textarea>`:`<input name="${f.name}" placeholder="${esc(f.label||f.name)}${f.required?" *":""}">`).join("")+"<button>등록</button>";}
-async function signup(){const h=prompt("핸들");if(!h)return;const r=await j("/signup",{method:"POST",body:JSON.stringify({handle:h})});if(r.token){tok=r.token;localStorage.setItem("tok___SLUG__",tok);load()}else alert(r.detail)}
+async function login(){
+ if(cfg.provider=="kakao"){location.href=cfg.login_url;return}
+ if(cfg.provider=="portone"){
+  const handle=prompt("사용할 닉네임 (2~20자)");if(!handle)return;
+  await new Promise(r=>{if(window.PortOne)return r();const e=document.createElement("script");e.src="https://cdn.portone.io/v2/browser-sdk.js";e.onload=r;document.head.append(e)});
+  const st=await j("/auth/portone/start",{method:"POST"});
+  const res=await PortOne.requestIdentityVerification({storeId:st.storeId,channelKey:st.channelKey,identityVerificationId:st.identityVerificationId});
+  if(res&&res.code){alert("본인인증 실패: "+(res.message||res.code));return}
+  const r=await j("/auth/portone/complete",{method:"POST",body:JSON.stringify({identityVerificationId:st.identityVerificationId,handle})});
+  if(r.token){save(r.token);load()}else alert(r.detail);return}
+ const h=prompt("핸들");if(!h)return;const r=await j("/signup",{method:"POST",body:JSON.stringify({handle:h})});
+ if(r.token){save(r.token);load()}else alert(r.detail)}
+async function logout(){await j("/auth/logout",{method:"POST"});localStorage.removeItem("tok___SLUG__");tok=null;load()}
 form.onsubmit=async ev=>{ev.preventDefault();const d={};new FormData(form).forEach((v,k)=>{if(v!=="")d[k]=v});
  const r=await j("/e/"+cur,{method:"POST",body:JSON.stringify(d)});if(r.detail)alert(JSON.stringify(r.detail));else load()};
 load();

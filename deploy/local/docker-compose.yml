@@ -22,6 +22,11 @@ services:
     environment:
       DATABASE_URL: postgresql://forge:${POSTGRES_PASSWORD}@db:5432/forge
       SPECS_DIR: /srv/specs
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      PORTONE_API_SECRET: ${PORTONE_API_SECRET:-}
     # specs를 호스트에서 마운트 → 파일 추가/수정만으로 재시작 없이 서비스 생성(핫 리로드)
     volumes: [../../app/specs:/srv/specs:ro]
 

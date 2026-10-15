@@ -1,5 +1,5 @@
 .PHONY: init up down logs ps backup restore new
-init: ; test -f .env || (cp .env.example .env && sed -i "s/change-me/$$(openssl rand -hex 16)/" .env && echo ".env 생성됨")
+init: ; test -f .env || (cp .env.example .env && sed -i "s/change-me-session/$$(openssl rand -hex 32)/; s/change-me$$/$$(openssl rand -hex 16)/" .env && echo ".env 생성됨")
 up: init ; docker compose up -d --build
 down: ; docker compose down
 logs: ; docker compose logs -f --tail=100

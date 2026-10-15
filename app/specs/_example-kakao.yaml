@@ -1,0 +1,10 @@
+# 카카오 소셜 로그인 버전. 파일명을 '_' 없이 바꾸면 활성화된다.
+slug: climb-kakao
+name: 클라이밍 허브
+topic: 클라이밍 암장 정보
+entities:
+  - {key: gym, label: 암장, fields: [{name: name, required: true}, {name: city}]}
+auth:
+  provider: kakao
+  kakao:
+    scope: []            # 닉네임은 기본 제공. 이메일 등은 ["account_email"] (카카오 비즈앱 설정 필요)

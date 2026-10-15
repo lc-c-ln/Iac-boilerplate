@@ -45,6 +45,28 @@ class CommunitySpec(BaseModel):
     moderation: Literal["open", "approval"] = "open"  # approval: 등록 객체를 관리자가 승인
 
 
+class PortOneSpec(BaseModel):
+    store_id: str = ""        # 콘솔의 Store ID (공개 식별자)
+    channel_key: str = ""     # 본인인증 채널 키 (공개 식별자)
+    min_age: int = 0          # 만 나이 하한 (예: 19). 0이면 검사 안 함
+
+
+class KakaoSpec(BaseModel):
+    scope: list[str] = []     # 예: ["account_email"] (비즈 앱 검수 필요한 항목 주의)
+
+
+class AuthSpec(BaseModel):
+    provider: Literal["token", "kakao", "portone"] = "token"  # token: 개발/내부용 (handle만으로 가입)
+    portone: PortOneSpec = PortOneSpec()
+    kakao: KakaoSpec = KakaoSpec()
+
+    @model_validator(mode="after")
+    def _need(self):
+        if self.provider == "portone" and not (self.portone.store_id and self.portone.channel_key):
+            raise ValueError("auth.provider=portone 에는 portone.store_id / channel_key 가 필요합니다")
+        return self
+
+
 class ServiceSpec(BaseModel):
     slug: str
     name: str
@@ -55,6 +77,7 @@ class ServiceSpec(BaseModel):
     theme: dict[str, str] = {"color": "#2563eb"}
     entities: list[EntitySpec]
     community: CommunitySpec = CommunitySpec()
+    auth: AuthSpec = AuthSpec()
 
     @field_validator("slug")
     @classmethod

@@ -5,3 +5,5 @@ extra_domains = []          # 예: ["camping.example.org"]
 desired_count = 2
 db_instance_class = "db.t4g.small"
 db_multi_az   = false       # 운영 시 true 권장
+
+# 인증 비밀값은 파일에 적지 말고 환경변수로: export TF_VAR_kakao_rest_api_key=... TF_VAR_portone_api_secret=...

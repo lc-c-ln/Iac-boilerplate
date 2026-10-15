@@ -20,7 +20,7 @@ community: {{moderation: {moderation}}}
     if url != ":memory:":
         import psycopg
         with psycopg.connect(url, autocommit=True) as c:
-            c.execute("TRUNCATE users, records, threads, reactions RESTART IDENTITY")
+            c.execute("TRUNCATE users, sessions, auth_nonces, records, threads, reactions RESTART IDENTITY")
     return TestClient(app)
 
 

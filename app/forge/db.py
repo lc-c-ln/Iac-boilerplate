@@ -4,8 +4,11 @@ import json, secrets, sqlite3, threading, time
 from contextlib import contextmanager
 
 SCHEMA_SQLITE = """
-CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, tenant TEXT, handle TEXT, token TEXT UNIQUE,
-  role TEXT DEFAULT 'member', created REAL, UNIQUE(tenant, handle));
+CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, tenant TEXT, handle TEXT,
+  role TEXT DEFAULT 'member', provider TEXT DEFAULT 'token', provider_uid TEXT, email TEXT, created REAL,
+  UNIQUE(tenant, handle), UNIQUE(tenant, provider, provider_uid));
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, tenant TEXT, user_id INTEGER, expires REAL);
+CREATE TABLE IF NOT EXISTS auth_nonces(id TEXT PRIMARY KEY, tenant TEXT, kind TEXT, created REAL, used INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS records(id INTEGER PRIMARY KEY, tenant TEXT, entity TEXT, data TEXT,
   author_id INTEGER, status TEXT DEFAULT 'published', created REAL);
 CREATE INDEX IF NOT EXISTS ix_rec ON records(tenant, entity, status, created);
@@ -52,15 +55,49 @@ class DB:
                 cur = self.conn.execute(sql, args)
             return cur.lastrowid if returning else cur.rowcount
 
-    def signup(self, tenant, handle):
+    # ---- 계정 / 세션 ----
+    def create_user(self, tenant, handle, provider="token", uid=None, email=None):
+        """첫 가입자 = 관리자. handle이 겹치면 -2, -3 … 접미사. (user_id, created) 반환."""
+        if uid is not None:
+            u = self.one("SELECT id FROM users WHERE tenant=? AND provider=? AND provider_uid=?", (tenant, provider, uid))
+            if u: return u["id"], False
         first = self.one("SELECT 1 AS x FROM users WHERE tenant=? LIMIT 1", (tenant,)) is None
-        tok = secrets.token_urlsafe(24)  # 첫 가입자 = 관리자
-        self.write("INSERT INTO users(tenant,handle,token,role,created) VALUES(?,?,?,?,?)",
-                   (tenant, handle, tok, "admin" if first else "member", time.time()))
+        base, n, h = (handle or "user")[:40], 1, (handle or "user")[:40]
+        while self.one("SELECT 1 AS x FROM users WHERE tenant=? AND handle=?", (tenant, h)):
+            n += 1; h = f"{base}-{n}"
+        uid_ = self.write("INSERT INTO users(tenant,handle,role,provider,provider_uid,email,created) VALUES(?,?,?,?,?,?,?)",
+                          (tenant, h, "admin" if first else "member", provider, uid, email, time.time()), True)
+        return uid_, True
+
+    def create_session(self, tenant, user_id, ttl=30 * 86400):
+        tok = secrets.token_urlsafe(32)
+        self.write("INSERT INTO sessions VALUES(?,?,?,?)", (tok, tenant, user_id, time.time() + ttl))
         return tok
 
+    def signup(self, tenant, handle):
+        """provider=token (개발/내부용): handle만으로 가입. 중복이면 ValueError."""
+        if self.one("SELECT 1 AS x FROM users WHERE tenant=? AND handle=?", (tenant, handle)):
+            raise ValueError("이미 있는 handle")
+        uid, _ = self.create_user(tenant, handle)
+        return self.create_session(tenant, uid)
+
     def user(self, tenant, token):
-        return self.one("SELECT * FROM users WHERE tenant=? AND token=?", (tenant, token))
+        return self.one("SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id "
+                        "WHERE s.tenant=? AND s.token=? AND s.expires>?", (tenant, token, time.time()))
+
+    def revoke(self, tenant, token):
+        self.write("DELETE FROM sessions WHERE tenant=? AND token=?", (tenant, token))
+
+    # ---- 1회용 nonce (PortOne identityVerificationId 등 재사용 방지) ----
+    def nonce_new(self, tenant, kind):
+        nid = secrets.token_urlsafe(18)
+        self.write("INSERT INTO auth_nonces(id,tenant,kind,created) VALUES(?,?,?,?)", (nid, tenant, kind, time.time()))
+        return nid
+
+    def nonce_use(self, tenant, kind, nid, ttl=900):
+        """미사용 + ttl 이내일 때만 1회 소비. 성공 시 True."""
+        return self.write("UPDATE auth_nonces SET used=1 WHERE id=? AND tenant=? AND kind=? AND used=0 AND created>?",
+                          (nid, tenant, kind, time.time() - ttl)) == 1
 
     def add_record(self, tenant, entity, data, author, status):
         return self.write("INSERT INTO records(tenant,entity,data,author_id,status,created) VALUES(?,?,?,?,?,?)",

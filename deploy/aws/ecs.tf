@@ -35,7 +35,7 @@ resource "aws_iam_role_policy_attachment" "execution" {
 resource "aws_iam_role_policy" "secrets" {
   role = aws_iam_role.execution.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [{
-    Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [aws_secretsmanager_secret.database_url.arn]
+    Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [aws_secretsmanager_secret.database_url.arn, aws_secretsmanager_secret.auth.arn]
   }] })
 }
 
@@ -62,7 +62,14 @@ resource "aws_ecs_task_definition" "app" {
     image        = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
     essential    = true
     portMappings = [{ containerPort = 8000 }]
-    secrets      = [{ name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn }]
+    environment  = [{ name = "PUBLIC_BASE_URL", value = local.use_https ? "https://${var.domain}" : "http://${aws_lb.main.dns_name}" }]
+    secrets = [
+      { name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database_url.arn },
+      { name = "SESSION_SECRET", valueFrom = "${aws_secretsmanager_secret.auth.arn}:SESSION_SECRET::" },
+      { name = "KAKAO_REST_API_KEY", valueFrom = "${aws_secretsmanager_secret.auth.arn}:KAKAO_REST_API_KEY::" },
+      { name = "KAKAO_CLIENT_SECRET", valueFrom = "${aws_secretsmanager_secret.auth.arn}:KAKAO_CLIENT_SECRET::" },
+      { name = "PORTONE_API_SECRET", valueFrom = "${aws_secretsmanager_secret.auth.arn}:PORTONE_API_SECRET::" },
+    ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
